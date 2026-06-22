@@ -1,32 +1,32 @@
-import React, { useEffect } from "react";
+import React from "react";
+
+// โหลด Tailwind, Font และ Icon ทันทีที่ไฟล์นี้ถูกเรียกใช้งาน (เพื่อให้ทำงานบน Vercel ได้)
+if (typeof window !== "undefined") {
+  if (!document.getElementById("tailwind-cdn")) {
+    const tailwindScript = document.createElement("script");
+    tailwindScript.id = "tailwind-cdn";
+    tailwindScript.src = "https://cdn.tailwindcss.com";
+    document.head.appendChild(tailwindScript);
+  }
+
+  if (!document.getElementById("phosphor-icons")) {
+    const phosphorScript = document.createElement("script");
+    phosphorScript.id = "phosphor-icons";
+    phosphorScript.src = "https://unpkg.com/@phosphor-icons/web";
+    document.head.appendChild(phosphorScript);
+  }
+
+  if (!document.getElementById("prompt-font")) {
+    const fontLink = document.createElement("link");
+    fontLink.id = "prompt-font";
+    fontLink.rel = "stylesheet";
+    fontLink.href =
+      "https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap";
+    document.head.appendChild(fontLink);
+  }
+}
 
 export default function App() {
-  // ฟังก์ชันนี้จะดึง Tailwind CSS, ฟอนต์ Prompt และ Icon มาให้โดยอัตโนมัติเมื่อเว็บโหลด
-  useEffect(() => {
-    if (!document.getElementById("tailwind-cdn")) {
-      const tailwindScript = document.createElement("script");
-      tailwindScript.id = "tailwind-cdn";
-      tailwindScript.src = "https://cdn.tailwindcss.com";
-      document.head.appendChild(tailwindScript);
-    }
-
-    if (!document.getElementById("phosphor-icons")) {
-      const phosphorScript = document.createElement("script");
-      phosphorScript.id = "phosphor-icons";
-      phosphorScript.src = "https://unpkg.com/@phosphor-icons/web";
-      document.head.appendChild(phosphorScript);
-    }
-
-    if (!document.getElementById("prompt-font")) {
-      const fontLink = document.createElement("link");
-      fontLink.id = "prompt-font";
-      fontLink.rel = "stylesheet";
-      fontLink.href =
-        "https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap";
-      document.head.appendChild(fontLink);
-    }
-  }, []);
-
   return (
     <div
       className="min-h-screen flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8"
