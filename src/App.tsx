@@ -1,5 +1,6 @@
 import React from "react";
 
+
 // Component สำหรับ Icon แบบ Inline SVG
 const TargetIcon = ({ size = 24, strokeWidth = 2 }) => (
   <svg
@@ -71,7 +72,7 @@ const StarIcon = ({ size = 24 }) => (
   </svg>
 );
 
-export default function App() {
+function Portal({ user, onLogout, busy, logging, error }: {user: User; onLogout: () => void; busy: boolean; logging: Logging | null; error: string}) {
   return (
     // ถอดระบบซ่อนจอ (opacity) ออก เพราะเราจะให้ Tailwind โหลดเสร็จตั้งแต่ index.html แล้ว
     <div
@@ -79,6 +80,12 @@ export default function App() {
       style={{ fontFamily: "sans-serif" }}
     >
       <div className="w-full max-w-6xl mx-auto space-y-12">
+        <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-blue-100 p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <div><p className="text-xs text-slate-500">ผู้ใช้งานปัจจุบัน</p><p className="font-bold text-slate-800">{user.name}</p><p className="text-sm text-slate-500">รหัสพนักงาน {user.code}</p></div>
+          <button onClick={onLogout} disabled={busy} className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-700 disabled:opacity-50">{busy ? 'กำลังออก…' : 'ออกจากระบบ'}</button>
+          {error && <p role="alert" className="w-full text-red-600 text-sm">{error}</p>}
+          {(!logging?.configured || (logging?.pending ?? 0) > 0) && <p role="status" className="w-full text-sm text-amber-700">{!logging?.configured ? 'ประวัติถูกบันทึกในเครื่องแล้ว • รอเชื่อมต่อ Google Sheets' : 'ประวัติถูกบันทึกในเครื่องแล้ว • กำลังส่งประวัติไป Google Sheets'}</p>}
+        </div>
         {/* ส่วนหัว (Header) */}
         <header className="text-center mt-6 mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-[#2d3748] mb-4 tracking-tight drop-shadow-sm">
@@ -186,3 +193,46 @@ export default function App() {
     </div>
   );
 }
+
+type User = { code: string; name: string };
+type Logging = { configured: boolean; pending: number };
+class ApiError extends Error { status: number = 0; }
+async function api(url: string, options: RequestInit = {}) {
+  const response = await fetch("/api/portal?action=" + url.split("/").pop(), { credentials: 'same-origin', ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
+  const data = await response.json();
+  if (!response.ok) { const error = new ApiError(data.error || 'ไม่สามารถเชื่อมต่อระบบได้'); error.status = response.status; throw error; }
+  return data;
+}
+export default function App() {
+  const [user, setUser] = React.useState<User | null>(null), [code, setCode] = React.useState('');
+  const [loading, setLoading] = React.useState(true), [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(''), [logging, setLogging] = React.useState<Logging | null>(null);
+  React.useEffect(() => { api('/api/session').then(data => { setUser(data.user); setLogging(data.logging); }).catch(() => setError('เชื่อมต่อระบบไม่ได้ กรุณาลองเข้าสู่ระบบอีกครั้ง')).finally(() => setLoading(false)); }, []);
+  React.useEffect(() => {
+    if (!user) return;
+    const heartbeat = () => api('/api/heartbeat', { method: 'POST', body: '{}' }).then(data => setLogging(data.logging)).catch(e => { if (e.status === 401) { setUser(null); setError('การเชื่อมต่อหมดเวลา กรุณาเข้าสู่ระบบอีกครั้ง'); } });
+    heartbeat(); const timer = setInterval(heartbeat, 30000);
+    const visible = () => { if (document.visibilityState === 'visible') heartbeat(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
+  }, [user]);
+  async function login(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(''); try { const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ code: code.trim() }) }); setUser(data.user); setLogging(data.logging); setCode(''); } catch(e: any) { setError(e.message); } finally { setBusy(false); } }
+  async function logout() { setBusy(true); setError(''); try { await api('/api/logout', { method: 'POST', body: '{}' }); setUser(null); } catch(e: any) { if (e.status === 401) setUser(null); else setError('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง'); } finally { setBusy(false); } }
+  if (loading) return <div className="min-h-screen bg-[#f7f9fc] flex items-center justify-center text-slate-600">กำลังตรวจสอบการเข้าสู่ระบบ…</div>;
+  if (user) return <Portal user={user} onLogout={logout} busy={busy} logging={logging} error={error} />;
+  return <div className="min-h-screen bg-[#f7f9fc] flex flex-col items-center justify-center px-4 py-10">
+    <div className="w-full max-w-md bg-white rounded-[2rem] shadow-xl border border-blue-100 p-8 sm:p-10">
+      <img src="/cp-retailink-logo.png" alt="CP Retailink" className="w-24 h-24 object-contain mx-auto mb-6" />
+      <h1 className="text-2xl font-bold text-slate-800 text-center">ระบบบริหารงานวิศวกรรม</h1>
+      <p className="text-sm text-blue-600 text-center mt-2 mb-8">หน่วยงานปฏิบัติการโครงการพิเศษลูกค้า 7-11</p>
+      <form onSubmit={login}>
+        <label htmlFor="employee-code" className="block text-sm font-semibold text-slate-700 mb-2">รหัสพนักงาน</label>
+        <input id="employee-code" type="password" autoComplete="off" value={code} onChange={e => setCode(e.target.value)} required maxLength={50} autoFocus disabled={busy} placeholder="กรอกรหัสพนักงานของคุณ" className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {error && <p role="alert" className="text-sm text-red-600 mt-3">{error}</p>}
+        <button type="submit" disabled={busy || !code.trim()} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-bold mt-5 disabled:opacity-50">{busy ? 'กำลังตรวจสอบ…' : 'เข้าสู่ระบบ'}</button>
+      </form>
+      <p className="text-xs text-slate-500 text-center mt-6">ระบบบันทึกประวัติการเข้าใช้งานและการออกจากระบบ</p>
+    </div>
+  </div>;
+}
+
